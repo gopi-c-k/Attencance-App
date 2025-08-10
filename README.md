@@ -1,4 +1,4 @@
-# gopik
+# Class Connect Attendance App
 
 A new Flutter project.
 
