@@ -12,9 +12,9 @@ class UserData {
     REGISTERNUMBER = prefs.getString('registerNumber') ?? '';
   }
 }
-final url = 'https://bde0-2409-408d-61b-cb95-87fb-fab-f2a2-d74e.ngrok-free.app/';
+final url = 'https://attendance-server-dgmw.onrender.com/';
 
-final StudentLoginRouters = 'https://bde0-2409-408d-61b-cb95-87fb-fab-f2a2-d74e.ngrok-free.app/StudentLogin';
+final StudentLoginRouters = 'https://attendance-server-dgmw.onrender.com/StudentLogin';
 
 /*
 

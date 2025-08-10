@@ -4,22 +4,184 @@ import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/utils.dart';
 import 'package:local_auth/local_auth.dart'; 
+import 'dart:async';
+import 'dart:async';
+import 'package:multicast_dns/multicast_dns.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/services.dart';
 class TakingAttendanceSFC extends StatefulWidget{
-  TakingAttendanceSF createState() => TakingAttendanceSF();
+  final Socket socket;
+
+  TakingAttendanceSFC({required this.socket});
+  TakingAttendanceSF createState() => TakingAttendanceSF(socket: socket);
 }
 class TakingAttendanceSF extends State<TakingAttendanceSFC> {
-  final LocalAuthentication _localAuth = LocalAuthentication();
+ /* final LocalAuthentication _localAuth = LocalAuthentication();
   bool _suppportstate = false;
+  bool _isAuthenticating = false;
+  String _authorized = 'Not Authorized';*/
+  final Socket socket;
+
+  TakingAttendanceSF({required this.socket});
+    final LocalAuthentication auth = LocalAuthentication();
+  _SupportState _supportState = _SupportState.unknown;
+  bool? _canCheckBiometrics;
+  List<BiometricType>? _availableBiometrics;
+  String _authorized = 'Not Authorized';
+  bool _isAuthenticating = false;
   @override
-  /*void initState(){
+   void initState() {
     super.initState();
-    _localAuth = LocalAuthentication();
-    _localAuth.isDeviceSupported().then(
-      (bool isSupported) => setState((){
-        _suppportstate = isSupported;
-      }),
-    );
+    auth.isDeviceSupported().then(
+          (bool isSupported) => setState(() => _supportState = isSupported
+              ? _SupportState.supported
+              : _SupportState.unsupported),
+        );
+  }
+  Future<void> _authenticateWithBiometrics() async {
+    bool authenticated = false;
+    try {
+      setState(() {
+        _isAuthenticating = true;
+        _authorized = 'Authenticating';
+      });
+      authenticated = await auth.authenticate(
+        localizedReason:
+            'Place your fingerprint for Attendance',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+      setState(() {
+        _isAuthenticating = false;
+        _authorized = 'Authenticating';
+      });
+    } on PlatformException catch (e) {
+      print(e);
+      setState(() {
+        _isAuthenticating = false;
+        _authorized = 'Error - ${e.message}';
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final String message = authenticated ? 'Authorized' : 'Not Authorized';
+    setState(() {
+      _authorized = message;
+    });
+  }
+   Future<void> _checkBiometrics() async {
+    late bool canCheckBiometrics;
+    try {
+      canCheckBiometrics = await auth.canCheckBiometrics;
+    } on PlatformException catch (e) {
+      canCheckBiometrics = false;
+      print(e);
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _canCheckBiometrics = canCheckBiometrics;
+    });
+  }
+
+  Future<void> _getAvailableBiometrics() async {
+    late List<BiometricType> availableBiometrics;
+    try {
+      availableBiometrics = await auth.getAvailableBiometrics();
+    } on PlatformException catch (e) {
+      availableBiometrics = <BiometricType>[];
+      print(e);
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _availableBiometrics = availableBiometrics;
+    });
+  }
+
+  Future<void> _authenticate() async {
+    bool authenticated = false;
+    try {
+      setState(() {
+        _isAuthenticating = true;
+        _authorized = 'Authenticating';
+      });
+      authenticated = await auth.authenticate(
+        localizedReason: 'Let OS determine authentication method',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+        ),
+      );
+      setState(() {
+        _isAuthenticating = false;
+      });
+    } on PlatformException catch (e) {
+      print(e);
+      setState(() {
+        _isAuthenticating = false;
+        _authorized = 'Error - ${e.message}';
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(
+        () => _authorized = authenticated ? 'Authorized' : 'Not Authorized');
+  }
+/*
+  Future<void> _authenticateWithBiometrics() async {
+    bool authenticated = false;
+    try {
+      setState(() {
+        _isAuthenticating = true;
+        _authorized = 'Authenticating';
+      });
+      authenticated = await auth.authenticate(
+        localizedReason:
+            'Scan your fingerprint (or face or whatever) to authenticate',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+      setState(() {
+        _isAuthenticating = false;
+        _authorized = 'Authenticating';
+      });
+    } on PlatformException catch (e) {
+      print(e);
+      setState(() {
+        _isAuthenticating = false;
+        _authorized = 'Error - ${e.message}';
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final String message = authenticated ? 'Authorized' : 'Not Authorized';
+    setState(() {
+      _authorized = message;
+    });
   }*/
+
+  Future<void> _cancelAuthentication() async {
+    await auth.stopAuthentication();
+    setState(() => _isAuthenticating = false);
+  }
   @override
   Widget build(BuildContext context) {
     double baseWidth = 396;
@@ -178,8 +340,10 @@ class TakingAttendanceSF extends State<TakingAttendanceSFC> {
                                 top: 4 * fem,
                                 child: TextButton(
                                  onPressed: () async {
-                    // Call function to verify fingerprint
-                    await _verifyFingerprint(context);
+                                  if(_authorized == 'Not Authorized'){
+                                    await _authenticateWithBiometrics();
+                                  }
+                                  
                   },
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.symmetric(horizontal: 20 * fem),
@@ -200,7 +364,7 @@ class TakingAttendanceSF extends State<TakingAttendanceSFC> {
                                     ),
                                     child: Center(
                                       child: Text(
-                                        'Fingerprint verify',
+                                        _authorized == 'Not Authorized' ? 'Fingerprint Verify' : 'Fingerprint Verified',
                                         style: GoogleFonts.getFont(
                                           'Plus Jakarta Sans',
                                           fontSize: 14 * ffem,
@@ -226,7 +390,9 @@ class TakingAttendanceSF extends State<TakingAttendanceSFC> {
                         Container(
                           margin: EdgeInsets.fromLTRB(16 * fem, 0 * fem, 16 * fem, 12 * fem),
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              socket.writeln('Its from Fingerprint');
+                            },
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.symmetric(horizontal: 20 * fem),
                             ),
@@ -303,7 +469,8 @@ class TakingAttendanceSF extends State<TakingAttendanceSFC> {
       ),
     );
   }
-  Future<void> _verifyFingerprint(BuildContext context) async {
+ 
+ /* Future<void> _verifyFingerprint(BuildContext context) async {
     bool isAuthenticated = false;
 
     try {
@@ -364,12 +531,20 @@ class TakingAttendanceSF extends State<TakingAttendanceSFC> {
           },
         );
     }
-  }
+  }*/
 
 }
 class TakingAttendance  extends StatelessWidget {
+  final Socket socket;
+
+  TakingAttendance({required this.socket});
   @override
   Widget build(BuildContext context) {
-    return TakingAttendanceSFC();
+    return TakingAttendanceSFC(socket: socket);
   }
+}
+enum _SupportState {
+  unknown,
+  supported,
+  unsupported,
 }

@@ -270,10 +270,10 @@ class StudentsSettingsSF extends State<StudentsSettingsSFC> {
                 // Taking Attendance
                 TextButton(
                   onPressed: () {
-                    Navigator.push(
+                  /*  Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => TakingAttendance()),
-                    );
+                    );*/
                   },
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
